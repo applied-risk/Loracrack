@@ -1,0 +1,8 @@
+*.pyc
+.DS_Store
+loracrack
+loracrack_decrypt
+loracrack_genkeys
+loracrack_guessjoin
+loracrack_knownpt
+openssl-1.0.2q/

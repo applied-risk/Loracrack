@@ -17,7 +17,9 @@ Just `make` it. Note that you may have to link to an openssl 1.0.* location in t
 
 #### loracrack
 `./loracrack -k <AppKey in hex> -p <raw_packet in hex>`
+
 Cracks session keys if handshake (join-accept) is missed but AppKey is known. Cracking is done by generating session keys and checking the MIC.
+
 ```$ gcc loracrack.c includes/*.c -o loracrack -lpthread -lcrypto -O3
 $ ./loracrack -k 88888888888888888888888888888888 -p 400267bd018005000142d9f48c52ea717c57
 
@@ -32,7 +34,9 @@ Optional arguments:
 
 #### loracrack_knownpt
 `./loracrack_knownpt -k <AppKey in hex> -p <raw_packet in hex> -d <plain_text in hex>`
+
 Cracks session keys if handshake (join-accept) is missed but AppKey and plaintext are known. Cracking is done by decrypting the FRMPayload and checking the plaintext. It's faster than checking the MIC, since the CMAC uses more AES operations.
+
 ```$ gcc loracrack_knownpt.c includes/*.c -o loracrack_knownpt -lpthread -lcrypto -O3
 $ ./loracrack_knownpt -k 88888888888888888888888888888888 -p 400267bd018005000142d9f48c52ea717c57 -d 33302e3332
 
@@ -47,7 +51,9 @@ Optional arguments:
 
 #### loracrack_decrypt
 `./loracrack_decrypt -k <decrypt key in hex> -p <raw_packet in hex>`
+
 Decrypts packet data if session key is known.
+
 ```$ gcc loracrack_decrypt.c includes/*.c -o loracrack_decrypt -lcrypto -O3
 $ ./loracrack_decrypt -k 4899be88e40088c40abc703fa3ba1195 -p 400267bd018005000142d9f48c52ea717c57
 
@@ -56,7 +62,9 @@ $ ./loracrack_decrypt -k 4899be88e40088c40abc703fa3ba1195 -p 400267bd01800500014
 
 #### loracrack_alterpacket
 `./loracrack_alterpacket -p <raw_packet in hex> -a <AppSKey in hex> -n <NwkSKey in hex> -c <Fctn> -d <new data in hex>`
+
 Alters packet with new data, keeps old things like DeviceAddr.
+
 ```$ gcc loracrack_alterpacket.c includes/*.c -o loracrack_alterpacket -O3 -lcrypto
 $ ./loracrack_alterpacket -p 400267bd018005000142d9f48c52ea717c57 -a 4899be88e40088c40abc703fa3ba1195 -n 04068f88b9feee5385c67e033d911b4a -c 5 -d 33302d3332
 
@@ -65,7 +73,9 @@ $ ./loracrack_alterpacket -p 400267bd018005000142d9f48c52ea717c57 -a 4899be88e40
 
 #### loracrack_genkeys
 `./loracrack_genkeys -k <AppKey in hex> -j <join_packet in hex> -a <accept_packet in hex>`
+
 Generates session keys given handshake (join and accept packets) and AppKey.
+
 ```$ gcc loracrack_genkeys.c includes/*.c -o loracrack_genkeys -lcrypto -O3
 $ ./loracrack_genkeys -k 88888888888888888888888888888888 -j 0000000000000000002bd61f000ba304000e1ba147157a -a 20adf6e18980952590fc1f7987a6913f35
 
@@ -74,7 +84,9 @@ $ ./loracrack_genkeys -k 88888888888888888888888888888888 -j 0000000000000000002
 
 #### loracrack_guessjoin
 `./loracrack_guessjoin -p <raw_packet in hex> -f <file with AppKeys in hex>`
+
 Checks if predictable AppKeys are used by checking the MIC on a join packet. AppKeys are taken from a file with hex-encoded AppKeys on new lines.
+
 ```$ gcc loracrack_guessjoin.c includes/*.c -o loracrack_guessjoin -lcrypto -O3
 $ ./loracrack_guessjoin -p 0000000000000000002bd61f000ba304002f3b5785cf80 -f guessjoin_genkeys/simplekeys
 

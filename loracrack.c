@@ -203,7 +203,7 @@ int main (int argc, char **argv)
 
 		// NetID zero for now
 		thread_args->NetID_start = 0;
-		thread_args->NetID_end = 0;
+		// thread_args->NetID_end = 0;
 
 		// Create thread
 		pthread_t tid;
@@ -225,7 +225,7 @@ void *loracrack_thread(void *vargp)
 
 	// Cipher vars
 	EVP_CIPHER_CTX ctx_aes128, ctx_aes128_buf;
-	CMAC_CTX *ctx_aes128_cmac, *ctx_aes128_cmac_buf;
+	CMAC_CTX *ctx_aes128_cmac;
 
 	// Output vars
 	unsigned char NwkSKey[16];
@@ -239,8 +239,9 @@ void *loracrack_thread(void *vargp)
 	unsigned int AppNonce_current = ((struct thread_args*)vargp)->AppNonce_start;
 	unsigned int AppNonce_end = ((struct thread_args*)vargp)->AppNonce_end;
 
+	// NetID not yet implemented
 	unsigned int NetID_start = ((struct thread_args*)vargp)->NetID_start;
-	unsigned int NetID_end = ((struct thread_args*)vargp)->NetID_end;
+	// unsigned int NetID_end = ((struct thread_args*)vargp)->NetID_end;
 
 	// 2 byte integer
 	unsigned short DevNonce = 0;

@@ -222,10 +222,12 @@ int main (int argc, char **argv)
 	memcpy(MIC_data, B0, 16);
 	memcpy(MIC_data+16, packet, msg_len);
 
+	// Recalculate MIC
 	CMAC_Init(ctx_aes128_cmac, NwkSKey, 16, EVP_aes_128_cbc(), NULL);
 	CMAC_Update(ctx_aes128_cmac, MIC_data, MIC_data_len);
 	CMAC_Final(ctx_aes128_cmac, cmac_result, &cmac_result_len);
 
+	// Write new MIC
 	packet[packet_len - 4] = cmac_result[0];
 	packet[packet_len - 3] = cmac_result[1];
 	packet[packet_len - 2] = cmac_result[2];

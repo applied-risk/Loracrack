@@ -1,8 +1,6 @@
 /* 
 	Sipke Mellema
 	AR '19
-
-	Known plaintext attack on LoRa sessions
 */
 
 
@@ -198,7 +196,7 @@ int main (int argc, char **argv)
 
 		// NetID zero for now
 		thread_args->NetID_start = 0;
-		thread_args->NetID_end = 0;
+		// thread_args->NetID_end = 0;
 
 		// Create thread
 		pthread_t tid;
@@ -232,7 +230,7 @@ void *loracrack_thread(void *vargp)
 	unsigned int AppNonce_end = ((struct thread_args*)vargp)->AppNonce_end;
 
 	unsigned int NetID_start = ((struct thread_args*)vargp)->NetID_start;
-	unsigned int NetID_end = ((struct thread_args*)vargp)->NetID_end;
+	// unsigned int NetID_end = ((struct thread_args*)vargp)->NetID_end;
 
 	// 2 byte integer
 	unsigned short DevNonce = 0;

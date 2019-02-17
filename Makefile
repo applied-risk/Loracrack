@@ -1,15 +1,16 @@
-loracrack_includes = includes/*.c -Lincludes/openssl-1.0.2q/ -Iincludes/openssl-1.0.2q/include/
-cryptoz_linkert = -lcrypto -O3
+# Uncomment to link to custom openssl 1.0.2 location
+#openssl_include = includes/*.c -Lincludes/openssl-1.0.2q/ -Iincludes/openssl-1.0.2q/include/
+otherlz_linkert = -lcrypto -O3 -Wall
 
 default: all
 
 all:
-	gcc loracrack.c							$(loracrack_includes)	-o	loracrack							$(cryptoz_linkert)	-lpthread
-	gcc loracrack_knownpt.c			$(loracrack_includes)	-o	loracrack_knownpt			$(cryptoz_linkert)	-lpthread
-	gcc loracrack_decrypt.c			$(loracrack_includes)	-o	loracrack_decrypt			$(cryptoz_linkert)
-	gcc loracrack_alterpacket.c	$(loracrack_includes)	-o	loracrack_alterpacket	$(cryptoz_linkert)
-	gcc loracrack_genkeys.c			$(loracrack_includes)	-o	loracrack_genkeys			$(cryptoz_linkert)
-	gcc loracrack_guessjoin.c		$(loracrack_includes)	-o	loracrack_guessjoin		$(cryptoz_linkert)
+	gcc loracrack.c					$(openssl_include)	-o	loracrack				$(otherlz_linkert)	-lpthread
+	gcc loracrack_knownpt.c			$(openssl_include)	-o	loracrack_knownpt		$(otherlz_linkert)	-lpthread
+	gcc loracrack_decrypt.c			$(openssl_include)	-o	loracrack_decrypt		$(otherlz_linkert)
+	gcc loracrack_alterpacket.c		$(openssl_include)	-o	loracrack_alterpacket	$(otherlz_linkert)
+	gcc loracrack_genkeys.c			$(openssl_include)	-o	loracrack_genkeys		$(otherlz_linkert)
+	gcc loracrack_guessjoin.c		$(openssl_include)	-o	loracrack_guessjoin		$(otherlz_linkert)
 
 test:
 	python unit_test.py

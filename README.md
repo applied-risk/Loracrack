@@ -4,12 +4,16 @@ Created by Sipke Mellema
 
 This is a Proof-of-Concept for demonstrating the dangers of using the same AppKey on multiple LoRaWAN nodes.
 
-This repository holds a toolbox for cracking LoRaWAN session keys from captured packets. The attack scenario assumes you know the AppKey, but missed the handshake. Or the AppKey isn't random and can be guessed.
+This repository holds a toolbox for cracking LoRaWAN session keys from captured packets. The attack scenario assumes you know the AppKey but missed the handshake. Or the AppKey isn't random and can be guessed.
 
 LoRa handshakes use three values to generate the session keys:
 `AppNonce | NetID | DevNonce`
 AppNonce and NetID are 3 bytes, and DevNonce is 2 bytes. Part of the NetID is known, so that leaves 57-bit entropy. And because of implementation flaws this can get way lower.
 
+### Compiling and usage
+Just `make` it. Note that you may have to link to an openssl 1.0.* location in the Makefile.
+
+### Overview of tools
 
 #### loracrack
 `./loracrack -k <AppKey in hex> -p <raw_packet in hex>`

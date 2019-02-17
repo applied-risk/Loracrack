@@ -1,5 +1,5 @@
 # Uncomment to link to custom openssl 1.0.2 location
-#openssl_include = includes/*.c -Lincludes/openssl-1.0.2q/ -Iincludes/openssl-1.0.2q/include/
+openssl_include = includes/*.c -Lincludes/openssl-1.0.2q/ -Iincludes/openssl-1.0.2q/include/
 otherlz_linkert = -lcrypto -O3 -Wall
 
 default: all

@@ -1,9 +1,6 @@
 /* 
 	Sipke Mellema
 	AR '19
-
-	Required: AppKey and raw packet from other device
-
 */
 
 

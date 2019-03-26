@@ -1,6 +1,6 @@
 ## Loracrack - LoRaWAN session cracker
 ##### A PoC for exploiting weak or shared Application Keys
-Created by Sipke Mellema
+Created by Sipke Mellema of Applied Risk
 
 This is a Proof-of-Concept for demonstrating the dangers of using the same AppKey on multiple LoRaWAN nodes.
 

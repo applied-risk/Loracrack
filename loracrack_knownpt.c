@@ -3,6 +3,8 @@
 	AR '19
 */
 
+/* -------------------------------------------------------------------------- */
+/* --- DEPENDENCIES --------------------------------------------------------- */
 
 #include <unistd.h>
 #include <string.h>
@@ -13,19 +15,23 @@
 
 #include "headers/loracrack.h"
 
+/* -------------------------------------------------------------------------- */
+/* --- CONSTANTS & TYPES ---------------------------------------------------- */
 
 #define MType_UP 0 // uplink
 #define MType_DOWN 1 // downlink
 
-
-
-int verbose = 0;
+/* -------------------------------------------------------------------------- */
+/* --- GLOBAL VARIABLES ----------------------------------------------------- */
 
 // Variables shared among threads
 volatile bool cracked = false;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Global variables
+char *AppKey_hex = NULL;
+char* packet_hex= NULL;
+char* plain_text_hex = NULL;
+
 unsigned char *AppKey;
 unsigned char *packet;
 unsigned char *plain_text;
@@ -34,11 +40,13 @@ unsigned char A_1[16];
 
 size_t plain_text_len = 0;
 
+int verbose = 0;
+
+/* -------------------------------------------------------------------------- */
+/* --- MAIN FUNCTION -------------------------------------------------------- */
 
 int main (int argc, char **argv)
 {
-	char *AppKey_hex = NULL, *packet_hex= NULL, *plain_text_hex = NULL;
-
 	// Set number of threads
 	// Intel(R) Core(TM) i5-7360U
 	// See https://ark.intel.com/products/97535/Intel-Core-i5-7360U-Processor-4M-Cache-up-to-3-60-GHz-
@@ -77,7 +85,7 @@ int main (int argc, char **argv)
 		error_die("Usage: \
 			\n\t./loracrack_knownpt -k <AppKey in hex> -p <raw_packet in hex> -d <plain_text in hex>\
 			\nExample: \
-			\n\t./loracrack_knownpt -k 88888888888888888888888888888888 -p 400267bd018005000142d9f48c52ea717c57 -d 33302e3332\n");
+			\n\t./loracrack_knownpt -k 88888888888888888888888888888888 -p 400267bd018005000142d9f48c52ea717c57 -d 33302e3332 -v 1\n");
 
 	// Validate input - General
 	validate_hex_input(AppKey_hex);
@@ -167,7 +175,7 @@ int main (int argc, char **argv)
 		printf("Cracking with AppKey: ");
 		printBytes(AppKey, 16);
 
-		printf("Finding plaintext: ");
+		printf("\nFinding plaintext: ");
 		printBytes(plain_text, plain_text_len);
 	}
 
@@ -217,7 +225,9 @@ int main (int argc, char **argv)
 void *loracrack_thread(void *vargp) 
 { 
 	// Cipher vars
-	EVP_CIPHER_CTX ctx_aes128, ctx_aes128_buf, ctx_aes128_decrypt;
+	EVP_CIPHER_CTX* ctx_aes128;
+	EVP_CIPHER_CTX* ctx_aes128_buf;
+	EVP_CIPHER_CTX* ctx_aes128_decrypt;
 
 	// Output vars
 	unsigned char AppSKey[16];
@@ -239,9 +249,9 @@ void *loracrack_thread(void *vargp)
 		printf("Thread %i cracking from AppNonce %i to %i\n", thread_ID, AppNonce_current, AppNonce_end);
 
 	// Init ciphers
-	EVP_CIPHER_CTX_init(&ctx_aes128);
-	EVP_CIPHER_CTX_init(&ctx_aes128_buf);
-	EVP_CIPHER_CTX_init(&ctx_aes128_decrypt);
+	ctx_aes128 = EVP_CIPHER_CTX_new();
+	ctx_aes128_buf = EVP_CIPHER_CTX_new();
+	ctx_aes128_decrypt = EVP_CIPHER_CTX_new();
 	
 	// Session key generation buffer
 	unsigned char message[16], decrypt_result[16];
@@ -260,7 +270,7 @@ void *loracrack_thread(void *vargp)
 
 
 	// Init aes context
-	EVP_EncryptInit_ex(&ctx_aes128_buf, EVP_aes_128_ecb(), NULL, AppKey, NULL);
+	EVP_EncryptInit_ex(ctx_aes128_buf, EVP_aes_128_ecb(), NULL, AppKey, NULL);
 
 	// AppNonce_end is exclusive
 	while (AppNonce_current < AppNonce_end && !cracked) 
@@ -277,25 +287,21 @@ void *loracrack_thread(void *vargp)
 
 		while (DevNonce < 0xffff) 
 		{
-
 			// Update DevNonce in message
 			message[7] = (DevNonce >> (8*1)) & 0xff; // Reversed?
 			message[8] = (DevNonce >> (8*0)) & 0xff;
 
-			// Create session key
-			memcpy(&ctx_aes128, &ctx_aes128_buf, sizeof(ctx_aes128_buf));
-			EVP_EncryptUpdate(&ctx_aes128, AppSKey, &outlen, message, 16);
+			EVP_EncryptInit_ex(ctx_aes128, EVP_aes_128_ecb(), NULL, AppKey, NULL);
+			EVP_EncryptUpdate(ctx_aes128, AppSKey, &outlen, message, 16);
 
-			EVP_EncryptInit_ex(&ctx_aes128_decrypt, EVP_aes_128_ecb(), NULL, AppSKey, NULL);
-			EVP_EncryptUpdate(&ctx_aes128_decrypt, decrypt_result, &outlen, A_1, 16);
+			EVP_EncryptInit_ex(ctx_aes128_decrypt, EVP_aes_128_ecb(), NULL, AppSKey, NULL);
+			EVP_EncryptUpdate(ctx_aes128_decrypt, decrypt_result, &outlen, A_1, 16);
 
 			for (int o = 0;o < plain_text_len; o++)
-				decrypt_result[o] ^= first_block_encrypted[o];
-			
+				decrypt_result[o] ^= first_block_encrypted[o];			
 
-			if (memcmp(decrypt_result, plain_text, plain_text_len) == 0) 
+			if (memcmp(decrypt_result, plain_text, plain_text_len) == 0)
 			{
-
 				// cracked is used by multiple threads
 				pthread_mutex_lock(&mutex);
 				cracked = true;
@@ -312,8 +318,8 @@ void *loracrack_thread(void *vargp)
 				printf(" ");
 
 				message[0] = 0x01;
-				EVP_EncryptInit_ex(&ctx_aes128, EVP_aes_128_ecb(), NULL, AppKey, NULL);
-				EVP_EncryptUpdate(&ctx_aes128, AppSKey, &outlen, message, 16);
+				EVP_EncryptInit_ex(ctx_aes128, EVP_aes_128_ecb(), NULL, AppKey, NULL);
+				EVP_EncryptUpdate(ctx_aes128, AppSKey, &outlen, message, 16);
 
 				if (verbose)
 					printf("\nNwkSKey,");
@@ -327,7 +333,7 @@ void *loracrack_thread(void *vargp)
 				printf("\n");
 
 				// Clean aes data
-				EVP_CIPHER_CTX_cleanup(&ctx_aes128);
+				EVP_CIPHER_CTX_cleanup(ctx_aes128);
 
 				break;
 			}
@@ -337,14 +343,8 @@ void *loracrack_thread(void *vargp)
 		AppNonce_current += 1;
 	}
 
-  return NULL; 
-} 
+  return NULL;
 
+}
 
-
-
-
-
-
-
-
+/* --- EOF ------------------------------------------------------------------ */

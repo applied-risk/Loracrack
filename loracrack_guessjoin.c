@@ -3,6 +3,8 @@
 	AR '19
 */
 
+/* -------------------------------------------------------------------------- */
+/* --- DEPENDENCIES --------------------------------------------------------- */
 
 #include <unistd.h>
 #include <string.h>
@@ -13,21 +15,24 @@
 
 #include "headers/loracrack.h"
 
+/* -------------------------------------------------------------------------- */
+/* --- GLOBAL VARIABLES ----------------------------------------------------- */
+
+char *packet_hex = NULL;
+char* filename = NULL;
+
+unsigned char *packet;
+unsigned char *MIC_data;
+unsigned char MIC[4];
+size_t MIC_data_len = 0;
+
+int verbose = 0;
+
+/* -------------------------------------------------------------------------- */
+/* --- MAIN FUNCTION -------------------------------------------------------- */
 
 int main (int argc, char **argv)
 {
-	// Argument buffers
-	char *packet_hex = NULL, *filename = NULL;
-
-	// Packet buffers
-	unsigned char *packet;
-	unsigned char *MIC_data;
-	unsigned char MIC[4];
-	size_t MIC_data_len = 0;
-
-
-	int verbose = 0;
-
 	// Process args
 	int c;
 	while ((c = getopt (argc, argv, "v:p:f:")) != -1) 
@@ -49,7 +54,7 @@ int main (int argc, char **argv)
 		error_die("Usage: \
 			\n\t./loracrack_guessjoin -p <raw_packet in hex> -f <file with AppKeys in hex>\
 			\nExample: \
-			\n\t./loracrack_guessjoin -p 0000000000000000002bd61f000ba304002f3b5785cf80 -f guessjoin_genkeys/simplekeys\n");
+			\n\t./loracrack_guessjoin -p 0000000000000000002bd61f000ba304002f3b5785cf80 -f simplekeys -v 0\n");
 
 	// Validate input - General
 	validate_hex_input(packet_hex);
@@ -83,6 +88,7 @@ int main (int argc, char **argv)
 
 		printf("\nTrying to find MIC: ");
 		printBytes(MIC, 4);
+		printf("\n");
 	}
 
 	CMAC_CTX *ctx_aes128_cmac;
@@ -119,13 +125,6 @@ int main (int argc, char **argv)
 		CMAC_Update(ctx_aes128_cmac, MIC_data, MIC_data_len);
 		CMAC_Final(ctx_aes128_cmac, cmac_result, &cmac_result_len);
 
-		if (verbose == 2) 
-		{
-			printf("MIC:");
-			printBytes(cmac_result,4);
-			printf("\n");
-		}
-
 		// Check if MIC matches MIC from packet
 		if (memcmp(cmac_result, MIC, 4) == 0) 
 		{
@@ -139,3 +138,5 @@ int main (int argc, char **argv)
 	fclose(fp);
 	return 0;
 }
+
+/* --- EOF ------------------------------------------------------------------ */

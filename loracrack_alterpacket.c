@@ -3,6 +3,8 @@
 	AR '19
 */
 
+/* -------------------------------------------------------------------------- */
+/* --- DEPENDENCIES --------------------------------------------------------- */
 
 #include <unistd.h>
 #include <string.h>
@@ -13,24 +15,33 @@
 
 #include "headers/loracrack.h"
 
+/* -------------------------------------------------------------------------- */
+/* --- CONSTANTS & TYPES ---------------------------------------------------- */
 
 #define MType_UP 0 // uplink
 #define MType_DOWN 1 // downlink
 
+/* -------------------------------------------------------------------------- */
+/* --- GLOBAL VARIABLES ----------------------------------------------------- */
 
+char* NwkSKey_hex = NULL;
+char* AppSKey_hex = NULL;
+char* packet_hex = NULL;
+char* data_hex = NULL;
+unsigned char *NwkSKey;
+unsigned char *AppSKey;
+unsigned char *packet;
+unsigned char *data;
+
+/* -------------------------------------------------------------------------- */
+/* --- MAIN FUNCTION -------------------------------------------------------- */
 
 int main (int argc, char **argv)
-{
-	char *NwkSKey_hex = NULL, *AppSKey_hex = NULL, *packet_hex = NULL, *data_hex = NULL;
-	unsigned char *NwkSKey;
-	unsigned char *AppSKey;
-	unsigned char *packet;
-	unsigned char *data;
-
+{	
 	// Process args
-	int c, verbose;
+	int c;
 	short new_FCnt = 0;
-	while ((c = getopt (argc, argv, "p:n:a:c:d:v:")) != -1) 
+	while ((c = getopt (argc, argv, "p:n:a:c:d:")) != -1) 
 	{
 		switch (c)
 		{
@@ -48,9 +59,6 @@ int main (int argc, char **argv)
 				break;
 			case 'd':
 				data_hex = optarg;
-				break;
-			case 'v':
-				verbose = atoi(optarg);
 				break;
 		}
 	}
@@ -147,8 +155,8 @@ int main (int argc, char **argv)
 	size_t nblocks = ceil(calc/16);
 
 	// Cipher vars
-	EVP_CIPHER_CTX ctx_aes128;
-	EVP_CIPHER_CTX_init(&ctx_aes128);
+	EVP_CIPHER_CTX *ctx_aes128;
+	ctx_aes128 = EVP_CIPHER_CTX_new();
 
 	// For decrypted block
 	unsigned char block[16];
@@ -172,8 +180,8 @@ int main (int argc, char **argv)
 				0x00,
 				i };
 
-		EVP_EncryptInit_ex(&ctx_aes128, EVP_aes_128_ecb(), NULL, AppSKey, NULL);
-		EVP_EncryptUpdate(&ctx_aes128, block, &outlen, A_i, 16);
+		EVP_EncryptInit_ex(ctx_aes128, EVP_aes_128_ecb(), NULL, AppSKey, NULL);
+		EVP_EncryptUpdate(ctx_aes128, block, &outlen, A_i, 16);
 
 		// XOR block with plaintext
 		for (int o = 0; o < 16; o++) 
@@ -240,5 +248,4 @@ int main (int argc, char **argv)
 	return 0;
 }
 
-
-
+/* --- EOF ------------------------------------------------------------------ */

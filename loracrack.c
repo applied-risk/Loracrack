@@ -3,52 +3,61 @@
 	AR '19
 */
 
+/* -------------------------------------------------------------------------- */
+/* --- DEPENDENCIES --------------------------------------------------------- */
 
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
-
+#include<stdlib.h>
+#include<stdint.h>
 #include <openssl/cmac.h>
-
+#include <unistd.h>
 #include "headers/loracrack.h"
 
+/* -------------------------------------------------------------------------- */
+/* --- CONSTANTS & TYPES ---------------------------------------------------- */
 
 #define MType_UP 0 // uplink
 #define MType_DOWN 1 // downlink
 
+/* -------------------------------------------------------------------------- */
+/* --- GLOBAL VARIABLES ----------------------------------------------------- */
 
-
-int verbose = 0;
-
-// Variables shared among threads
 volatile bool cracked = false;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Global variables
 unsigned char *AppKey;
 unsigned char *packet;
 unsigned char MIC[4];
 unsigned char *MIC_data;
+unsigned short dev_nonce = 0;
+bool dev_nonce_given = false;
+unsigned int net_id = 19;
 
 size_t MIC_data_len = 0;
 
+int verbose = 0;
+
+/* -------------------------------------------------------------------------- */
+/* --- MAIN FUNCTION -------------------------------------------------------- */
 
 int main (int argc, char **argv)
 {
-	char *AppKey_hex = NULL, *packet_hex= NULL;
+	char *AppKey_hex = NULL, *packet_hex= NULL, *net_id_hex= NULL;
 
 	// Set number of threads
 	// Intel(R) Core(TM) i5-7360U
 	// See https://ark.intel.com/products/97535/Intel-Core-i5-7360U-Processor-4M-Cache-up-to-3-60-GHz-
-	unsigned int n_threads = 4;
+	unsigned int n_threads = 16;
 
-	// Set max App Nonce (<=16777216)
-	unsigned int max_AppNonce = 16777216/10000; 
+	// Set max App Nonce (<= 16777216)
+	unsigned int max_AppNonce = 16777216;
 
 	// Process args
 	int c;
-	while ((c = getopt (argc, argv, "v:p:k:t:m:")) != -1) 
+	while ((c = getopt (argc, argv, "v:p:k:t:m:n:i:")) != -1) 
 	{
 		switch (c)
 		{
@@ -67,17 +76,36 @@ int main (int argc, char **argv)
 			case 'm':
 				max_AppNonce = atoi(optarg);
 				break;
+			case 'n':
+				dev_nonce = atoi(optarg);
+				dev_nonce_given = true;
+				break;
+			case 'i':
+				net_id_hex = optarg;
+				break;
 		}
 	}
 	if (AppKey_hex == NULL || packet_hex == NULL)
 		error_die("Usage: \
-			\n\t./loracrack -k <AppKey in hex> -p <raw_packet in hex> \
+			\n\t./loracrack -k <AppKey in hex> -p <hex PHYPayload Data Packet> [-t <threads number> -m <max AppNonce> -n <DevNonce> -v <1,2 for verbose/ very verbose>]\
 			\nExample: \
-			\n\t./loracrack -k 88888888888888888888888888888888 -p 400267bd018005000142d9f48c52ea717c57 \n");
+			\n\t./loracrack -k 88888888888888888888888888888888 -p 400267bd018005000142d9f48c52ea717c57 -v 1\n");
 
 	// Validate input - General
 	validate_hex_input(AppKey_hex);
 	validate_hex_input(packet_hex);
+	
+	// If net ID given, do some checks and get the value
+	if (net_id_hex != NULL){
+		validate_hex_input(net_id_hex);
+		
+		size_t net_id_len = strlen(net_id_hex) / 2;
+		if ( net_id_len != 3)
+			error_die("Net ID must be 3 bytes in hex format");
+
+		// Convert hex to int 
+		net_id = (int)strtol(net_id_hex, NULL, 16);
+	}
 
 	// Store data length
 	size_t AppKey_len = strlen(AppKey_hex) / 2;
@@ -87,7 +115,12 @@ int main (int argc, char **argv)
 	if (AppKey_len != 16)
 		error_die("AppKey must be 16 bytes");
 	if (packet_len <= 13)
-		error_die("Packet data too small");
+		printf("Packet data too small");
+
+	if (dev_nonce_given){
+		if (dev_nonce < 0 || dev_nonce > 65535)
+			error_die("Dev Nonce must be between 0 and 65,535");
+	}
 
 	// Convert to binary
 	AppKey = hexstr_to_char(AppKey_hex);
@@ -130,7 +163,7 @@ int main (int argc, char **argv)
 	unsigned char *FRMPayload = malloc(FRMPayload_len);
 	memcpy(FRMPayload, packet+FRMPayload_index, FRMPayload_len);
 
-	// Parse MIC data
+	// Parse MIC data //
 
 	int msg_len = packet_len - 4;
 
@@ -201,9 +234,7 @@ int main (int argc, char **argv)
 		thread_args->AppNonce_start = i*per_thread;
 		thread_args->AppNonce_end = (i*per_thread)+per_thread;
 
-		// NetID zero for now
-		thread_args->NetID_start = 0;
-		// thread_args->NetID_end = 0;
+		thread_args->NetID_start = net_id;
 
 		// Create thread
 		pthread_t tid;
@@ -219,13 +250,14 @@ int main (int argc, char **argv)
 }
 
 
-// Thread for for trying to crack certain ranges
+// Thread trying to crack certain ranges
 void *loracrack_thread(void *vargp) 
 { 
 
 	// Cipher vars
-	EVP_CIPHER_CTX ctx_aes128, ctx_aes128_buf;
-	CMAC_CTX *ctx_aes128_cmac;
+	EVP_CIPHER_CTX* ctx_aes128;
+	EVP_CIPHER_CTX* ctx_aes128_buf;
+	CMAC_CTX* ctx_aes128_cmac;
 
 	// Output vars
 	unsigned char NwkSKey[16];
@@ -244,14 +276,14 @@ void *loracrack_thread(void *vargp)
 	// unsigned int NetID_end = ((struct thread_args*)vargp)->NetID_end;
 
 	// 2 byte integer
-	unsigned short DevNonce = 0;
+	unsigned short DevNonce=0;
 
 	if (verbose)
 		printf("Thread %i cracking from AppNonce %i to %i\n", thread_ID, AppNonce_current, AppNonce_end);
 
 	// Init ciphers
-	EVP_CIPHER_CTX_init(&ctx_aes128);
-	EVP_CIPHER_CTX_init(&ctx_aes128_buf);
+	ctx_aes128 = EVP_CIPHER_CTX_new();
+	ctx_aes128_buf = EVP_CIPHER_CTX_new();
 	ctx_aes128_cmac = CMAC_CTX_new();
 
 	// Session key generation buffer
@@ -267,15 +299,19 @@ void *loracrack_thread(void *vargp)
 	message[4] = (NetID_start >> (8*0)) & 0xff;
 	message[5] = (NetID_start >> (8*1)) & 0xff;
 	message[6] = (NetID_start >> (8*2)) & 0xff;
-	message[7] = (DevNonce >> (8*1)) & 0xff; // Reversed?
-	message[8] = (DevNonce >> (8*0)) & 0xff;
+	message[7] = (DevNonce >> (8*0)) & 0xff; // Reversed?
+	message[8] = (DevNonce >> (8*1)) & 0xff;
 
-	EVP_EncryptInit_ex(&ctx_aes128_buf, EVP_aes_128_ecb(), NULL, AppKey, NULL);
+	EVP_EncryptInit_ex(ctx_aes128_buf, EVP_aes_128_ecb(), NULL, AppKey, NULL);
 
 	// AppNonce_end is exclusive
 	while (AppNonce_current < AppNonce_end && !cracked) 
-	{
-		DevNonce = 0;
+	{	
+		
+		if (dev_nonce_given)
+			DevNonce = dev_nonce;
+		else
+			DevNonce = 0;
 
 		if (verbose == 2)
 			printf("Thread %i @ AppNonce %i\n", thread_ID, AppNonce_current);
@@ -287,15 +323,16 @@ void *loracrack_thread(void *vargp)
 
 		while (DevNonce < 0xffff) 
 		{
-
 			// Update DevNonce in message
-			message[7] = (DevNonce >> (8*1)) & 0xff; // Reversed?
-			message[8] = (DevNonce >> (8*0)) & 0xff;
+			message[7] = (DevNonce >> (8*0)) & 0xff; // Reversed?
+			message[8] = (DevNonce >> (8*1)) & 0xff;
 
 			// NwkSKey = aes128_ecb(AppKey, message)
 			// copy init state instead of calling EVP_EncryptInit_ex every time
-			memcpy(&ctx_aes128, &ctx_aes128_buf, sizeof(ctx_aes128_buf));
-			EVP_EncryptUpdate(&ctx_aes128, NwkSKey, &outlen, message, 16);
+			//memcpy(ctx_aes128, ctx_aes128_buf, sizeof(ctx_aes128_buf));
+
+			EVP_EncryptInit_ex(ctx_aes128, EVP_aes_128_ecb(), NULL, AppKey, NULL);
+			EVP_EncryptUpdate(ctx_aes128, NwkSKey, &outlen, message, 16);
 			
 			// MIC = aes128_cmac(NwkSKey, MIC_data)
 			CMAC_Init(ctx_aes128_cmac, NwkSKey, 16, EVP_aes_128_cbc(), NULL);
@@ -305,7 +342,7 @@ void *loracrack_thread(void *vargp)
 			// Check if MIC matches MIC from packet
 			if (memcmp(cmac_result, MIC, 4) == 0) 
 			{
-
+				
 				// cracked is used by multiple threads
 				pthread_mutex_lock(&mutex);
 				cracked = true;
@@ -313,13 +350,13 @@ void *loracrack_thread(void *vargp)
 
 				// Output cracked results
 				if (verbose)
-					printf("\nOh dear lawd it's the same\n\n");
+					printf("\nFound a pair of possible session keys\n");
 
 				unsigned char AppSKey[16];
 				
 				message[0] = 0x02;
-				EVP_EncryptInit_ex(&ctx_aes128, EVP_aes_128_ecb(), NULL, AppKey, NULL);
-				EVP_EncryptUpdate(&ctx_aes128, AppSKey, &outlen, message, 16);
+				EVP_EncryptInit_ex(ctx_aes128, EVP_aes_128_ecb(), NULL, AppKey, NULL);
+				EVP_EncryptUpdate(ctx_aes128, AppSKey, &outlen, message, 16);
 
 				if (verbose)
 					printf("\nAppSKey,");
@@ -333,22 +370,24 @@ void *loracrack_thread(void *vargp)
 				
 				if (verbose)
 				{
-					printf("\nAppNonce,%x\n", AppNonce_current);
-					printf("DevNonce,%x\n", DevNonce);
+					printf("\nAppNonce,%x (%d)\n", AppNonce_current, AppNonce_current);
+					printf("DevNonce,%x (%d)\n", DevNonce, DevNonce);
 				}
 
-				// Clean aes data
-				EVP_CIPHER_CTX_cleanup(&ctx_aes128);
-				CMAC_CTX_free(ctx_aes128_cmac);
-
+				message[0] = 0x01;
+			}
+			if (dev_nonce_given){
 				break;
 			}
-
-			DevNonce += 1;
+			else{
+				DevNonce += 1;
+			}
 
 		}
 		AppNonce_current += 1;
 	}
 
     return NULL; 
-} 
+}
+
+/* --- EOF ------------------------------------------------------------------ */

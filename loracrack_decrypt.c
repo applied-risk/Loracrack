@@ -3,6 +3,8 @@
 	AR '19
 */
 
+/* -------------------------------------------------------------------------- */
+/* --- DEPENDENCIES --------------------------------------------------------- */
 
 #include <unistd.h>
 #include <string.h>
@@ -13,21 +15,28 @@
 
 #include "headers/loracrack.h"
 
+/* -------------------------------------------------------------------------- */
+/* --- CONSTANTS & TYPES ---------------------------------------------------- */
 
 #define MType_UP 0 // uplink
 #define MType_DOWN 1 // downlink
 
+/* -------------------------------------------------------------------------- */
+/* --- GLOBAL VARIABLES ----------------------------------------------------- */
 
+char *AppSKey_hex = NULL;
+char* packet_hex= NULL;
+unsigned char *AppSKey;
+unsigned char *packet;
+
+/* -------------------------------------------------------------------------- */
+/* --- MAIN FUNCTION -------------------------------------------------------- */
 
 int main (int argc, char **argv)
 {
-	char *AppSKey_hex = NULL, *packet_hex= NULL;
-	unsigned char *AppSKey;
-	unsigned char *packet;
-
 	// Process args
 	int c;
-	while ((c = getopt (argc, argv, "vp:k:")) != -1) 
+	while ((c = getopt (argc, argv, "vp:k:")) != -1)
 	{
 		switch (c)
 		{
@@ -106,8 +115,8 @@ int main (int argc, char **argv)
 	size_t nblocks = ceil(calc/16);
 
 	// Cipher vars
-	EVP_CIPHER_CTX ctx_aes128;
-	EVP_CIPHER_CTX_init(&ctx_aes128);
+	EVP_CIPHER_CTX *ctx_aes128;
+	ctx_aes128 = EVP_CIPHER_CTX_new();
 
 	// Encrypted block
 	unsigned char block[16];
@@ -130,8 +139,8 @@ int main (int argc, char **argv)
 				0x00,
 				i };
 
-		EVP_EncryptInit_ex(&ctx_aes128, EVP_aes_128_ecb(), NULL, AppSKey, NULL);
-		EVP_EncryptUpdate(&ctx_aes128, block, &outlen, A_i, 16);
+		EVP_EncryptInit_ex(ctx_aes128, EVP_aes_128_ecb(), NULL, AppSKey, NULL);
+		EVP_EncryptUpdate(ctx_aes128, block, &outlen, A_i, 16);
 
 		// XOR block with ciphertext
 		for (int o = 0; o < 16; o++) 
@@ -147,10 +156,12 @@ int main (int argc, char **argv)
 
 	decrypted[FRMPayload_index-1] = '\0';
 
-	printf("%s\n", decrypted);
+	for (int i = 0 ; i < FRMPayload_len ; ++i) {
+		printf("%02x", (unsigned char) decrypted[i]);
+	}
+	printf("\n");
 
 	return 0;
 }
 
-
-
+/* --- EOF ------------------------------------------------------------------ */
